@@ -11,7 +11,7 @@ import {
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
 import { format, isToday, isYesterday } from "date-fns";
-import { Send, LogOut, Edit, MessageSquare, Loader2, Menu, Bell, Smile, Video, Trash2, ImagePlus, UserPlus, Copy, Check, X, Pencil, Forward, Mic, Square, Reply } from "lucide-react";
+import { Send, LogOut, Edit, MessageSquare, Loader2, Menu, Bell, Smile, Video, Trash2, ImagePlus, UserPlus, Copy, Check, X, Pencil, Forward, Mic, Square, Reply, Phone } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import EmojiPicker, { Theme } from "emoji-picker-react";
 import { Avatar } from "@/components/Avatar";
@@ -29,6 +29,9 @@ import { cn } from "@/lib/utils";
 
 import { compressImage } from "@/lib/compress-image";
 import { usePresence } from "@/hooks/use-presence";
+import { useVoiceCall } from "@/hooks/use-voice-call";
+import { IncomingCallModal } from "@/components/IncomingCallModal";
+import { ActiveCallBar } from "@/components/ActiveCallBar";
 
 type ReplyTarget = {
   id: number;
@@ -392,6 +395,23 @@ export default function Home() {
 
   const onlineIds = usePresence(watchIds);
 
+  const {
+    callStatus,
+    remoteName,
+    incomingCall,
+    remoteStream,
+    startCall,
+    answerCall,
+    declineCall,
+    endCall,
+  } = useVoiceCall(user?.id, user ? `${user.firstName} ${user.lastName}` : "");
+
+  const dmOtherParticipant = activeConversation && !activeConversation.name
+    ? activeConversation.participants.find((p: { userId: string }) => p.userId !== user?.id)
+    : null;
+  const isInCall = callStatus === "calling" || callStatus === "connecting" || callStatus === "connected";
+  const canStartCall = !!dmOtherParticipant && dmOtherParticipant.userId && activeConversationId && !isInCall;
+
   // For a DM conversation: returns whether the other person is online
   const isDMOnline = (conv: any): boolean => {
     const others = conv.participants.filter((p: any) => p.userId !== user?.id);
@@ -564,6 +584,22 @@ export default function Home() {
                       <span className="text-xs text-emerald-500 font-medium leading-tight">Online</span>
                     )}
                   </div>
+                  {/* Voice call — only for 1:1 DMs */}
+                  {canStartCall && (
+                    <button
+                      onClick={() =>
+                        startCall(
+                          dmOtherParticipant.userId,
+                          `${dmOtherParticipant.firstName} ${dmOtherParticipant.lastName}`,
+                          activeConversation.id
+                        )
+                      }
+                      title="Voice call"
+                      className="p-1.5 rounded-full hover:bg-secondary text-muted-foreground hover:text-primary transition-colors shrink-0"
+                    >
+                      <Phone className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                   {/* Edit button — only for groups (conversations with a name) */}
                   {activeConversation.name && (
                     <button
@@ -1170,6 +1206,22 @@ export default function Home() {
       />
 
       <PhotoLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
+
+      <IncomingCallModal
+        fromName={incomingCall?.fromName ?? ""}
+        onAnswer={answerCall}
+        onDecline={declineCall}
+        open={!!incomingCall}
+      />
+
+      {(callStatus === "calling" || callStatus === "connecting" || callStatus === "connected") && (
+        <ActiveCallBar
+          remoteName={remoteName}
+          callStatus={callStatus}
+          remoteStream={remoteStream}
+          onEndCall={endCall}
+        />
+      )}
     </div>
   );
 }

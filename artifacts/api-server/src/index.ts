@@ -1,5 +1,7 @@
+import http from "http";
 import app from "./app";
 import { pool } from "@workspace/db";
+import { createSignalingServer } from "./voice/signaling";
 
 async function runMigrations() {
   const client = await pool.connect();
@@ -44,7 +46,9 @@ if (Number.isNaN(port) || port <= 0) {
 }
 
 runMigrations().then(() => {
-  app.listen(port, () => {
+  const httpServer = http.createServer(app);
+  createSignalingServer(httpServer);
+  httpServer.listen(port, () => {
     console.log(`Server listening on port ${port}`);
   });
 });
