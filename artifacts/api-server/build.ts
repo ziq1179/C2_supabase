@@ -42,7 +42,11 @@ async function buildAll() {
   await rm(distDir, { recursive: true, force: true });
 
   console.log("pushing database schema...");
-  execSync("pnpm --filter @workspace/db run push-force", {
+  const pushCmd =
+    process.env.CI || process.env.RENDER
+      ? "pnpm --filter @workspace/db run push-force:ci"
+      : "pnpm --filter @workspace/db run push-force";
+  execSync(pushCmd, {
     cwd: path.resolve(__dirname, "..", ".."),
     stdio: "inherit",
   });

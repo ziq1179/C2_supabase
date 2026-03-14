@@ -1,37 +1,44 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
 @import "tailwindcss";
 
 @theme inline {
-  --font-sans: 'Inter', sans-serif;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-display: 'Plus Jakarta Sans', sans-serif;
 
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
-  
+
   --color-card: hsl(var(--card));
   --color-card-foreground: hsl(var(--card-foreground));
-  
+
   --color-popover: hsl(var(--popover));
   --color-popover-foreground: hsl(var(--popover-foreground));
-  
+
   --color-primary: hsl(var(--primary));
   --color-primary-foreground: hsl(var(--primary-foreground));
-  
+
   --color-secondary: hsl(var(--secondary));
   --color-secondary-foreground: hsl(var(--secondary-foreground));
-  
+
   --color-muted: hsl(var(--muted));
   --color-muted-foreground: hsl(var(--muted-foreground));
-  
+
   --color-accent: hsl(var(--accent));
   --color-accent-foreground: hsl(var(--accent-foreground));
-  
+
   --color-destructive: hsl(var(--destructive));
   --color-destructive-foreground: hsl(var(--destructive-foreground));
-  
+
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
+
+  /* Dashboard accent colors */
+  --color-accent-purple: #8D4FFB;
+  --color-accent-orange: #FFA000;
+  --color-accent-green: #28A745;
+  --color-accent-teal: #20C997;
+  --color-accent-success: #2ECC71;
 
   --radius-xl: calc(var(--radius) + 4px);
   --radius-lg: var(--radius);
@@ -40,36 +47,43 @@
 }
 
 :root {
-  /* Dark mode by default for that premium modern chat feel */
-  --background: 240 10% 3.9%;
-  --foreground: 0 0% 98%;
-  
-  --card: 240 10% 3.9%;
-  --card-foreground: 0 0% 98%;
-  
-  --popover: 240 10% 3.9%;
-  --popover-foreground: 0 0% 98%;
-  
-  --primary: 252 87% 65%;
+  /* Light dashboard theme - clean, minimal, professional */
+  /* Background: subtle light grey #F8F9FB */
+  --background: 210 20% 98%;
+  --foreground: 0 0% 20%;
+
+  /* Cards: pure white #FFFFFF */
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 20%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 20%;
+
+  /* Primary: blue button #007BFF */
+  --primary: 211 100% 50%;
   --primary-foreground: 0 0% 100%;
-  
-  --secondary: 240 4% 16%;
-  --secondary-foreground: 0 0% 98%;
-  
-  --muted: 240 5% 14%;
-  --muted-foreground: 240 5% 64.9%;
-  
-  --accent: 252 87% 65%;
-  --accent-foreground: 0 0% 98%;
-  
+
+  /* Secondary: light grey borders #DDE1E6 */
+  --secondary: 210 14% 89%;
+  --secondary-foreground: 0 0% 20%;
+
+  /* Muted: secondary text #7F8C8D */
+  --muted: 195 9% 55%;
+  --muted-foreground: 195 9% 55%;
+
+  /* Accent: purple #8D4FFB */
+  --accent: 261 96% 62%;
+  --accent-foreground: 0 0% 100%;
+
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 98%;
-  
-  --border: 240 5% 18%;
-  --input: 240 5% 18%;
-  --ring: 252 87% 65%;
-  
-  --radius: 0.75rem;
+
+  /* Border: light grey #DDE1E6 */
+  --border: 210 14% 89%;
+  --input: 210 14% 89%;
+  --ring: 211 100% 50%;
+
+  --radius: 0.5rem;
 }
 
 @layer base {
@@ -80,29 +94,31 @@
     @apply bg-background text-foreground font-sans antialiased;
   }
   h1, h2, h3, h4, h5, h6 {
-    @apply font-display tracking-tight;
+    @apply font-display font-bold tracking-tight text-[#1E2C4F];
   }
 }
 
-/* Custom Scrollbar for sleek aesthetic */
+/* Custom Scrollbar - clean light theme */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: #EDF0F3;
 }
 ::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted));
+  background: #DDE1E6;
   border-radius: 10px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--muted-foreground));
+  background: #7F8C8D;
 }
 
+/* Glass/card panel - white cards with soft shadow */
 .glass-panel {
-  background: rgba(24, 24, 27, 0.6);
+  background: #FFFFFF;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid #DDE1E6;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }

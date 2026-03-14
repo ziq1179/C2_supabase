@@ -1,0 +1,26 @@
+# Render Blueprint - ChatConnect
+# Deploy: Connect your GitHub repo at dashboard.render.com, Render will detect this file
+#
+# Required: Add these Environment Variables in Render Dashboard:
+#   DATABASE_URL    - Your Supabase PostgreSQL connection string
+#   SESSION_SECRET  - Random string (e.g. run: openssl rand -hex 32)
+
+services:
+  - type: web
+    name: chatconnect
+    runtime: node
+
+    buildCommand: |
+      corepack enable pnpm
+      pnpm install --ignore-scripts
+      pnpm --filter @workspace/api-server run build
+
+    startCommand: node artifacts/api-server/dist/index.cjs
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true

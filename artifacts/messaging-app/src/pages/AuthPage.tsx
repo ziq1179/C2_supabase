@@ -68,21 +68,21 @@ export default function AuthPage() {
       <img
         src={`${import.meta.env.BASE_URL}images/login-bg.png`}
         alt="Abstract background"
-        className="absolute inset-0 w-full h-full object-cover opacity-60 mix-blend-screen scale-105 transform origin-center animate-[pulse_10s_ease-in-out_infinite]"
+        className="absolute inset-0 w-full h-full object-cover opacity-30 mix-blend-multiply scale-105 transform origin-center animate-[pulse_10s_ease-in-out_infinite]"
       />
-      <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-background/20" />
+      <div className="absolute inset-0 bg-gradient-to-t from-background via-background/95 to-background/60" />
 
       <motion.div
         initial={{ opacity: 0, y: 40 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-        className="relative z-10 w-full max-w-[420px] p-8 glass-panel rounded-[2rem] shadow-2xl mx-4 border border-white/10"
+        className="relative z-10 w-full max-w-[420px] p-8 glass-panel rounded-[2rem] shadow-xl mx-4 border border-border"
       >
         <div className="flex flex-col items-center mb-8">
-          <div className="h-16 w-16 bg-gradient-to-tr from-primary to-violet-400 rounded-2xl shadow-lg shadow-primary/30 flex items-center justify-center mb-6 transform rotate-3">
-            <MessageSquare className="h-8 w-8 text-white" />
+          <div className="h-16 w-16 bg-primary rounded-2xl shadow-lg shadow-primary/25 flex items-center justify-center mb-6 transform rotate-3">
+            <MessageSquare className="h-8 w-8 text-primary-foreground" />
           </div>
-          <h1 className="text-3xl font-display font-bold text-white mb-2">
+          <h1 className="text-3xl font-display font-bold text-[#1E2C4F] mb-2">
             {isLogin ? "Welcome back" : "Create account"}
           </h1>
           <p className="text-muted-foreground text-center">
@@ -117,7 +117,7 @@ export default function AuthPage() {
                     {...loginForm.register("email")}
                     type="email"
                     placeholder="Email address"
-                    className="w-full px-4 py-3.5 bg-secondary/50 border border-border rounded-xl text-white placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+                    className="w-full px-4 py-3.5 bg-card border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
                   />
                   {loginForm.formState.errors.email && (
                     <p className="text-destructive text-xs mt-1 ml-1">{loginForm.formState.errors.email.message}</p>
@@ -128,7 +128,7 @@ export default function AuthPage() {
                     {...loginForm.register("password")}
                     type="password"
                     placeholder="Password"
-                    className="w-full px-4 py-3.5 bg-secondary/50 border border-border rounded-xl text-white placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+                    className="w-full px-4 py-3.5 bg-card border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
                   />
                   {loginForm.formState.errors.password && (
                     <p className="text-destructive text-xs mt-1 ml-1">{loginForm.formState.errors.password.message}</p>
@@ -162,7 +162,7 @@ export default function AuthPage() {
                       {...signupForm.register("firstName")}
                       type="text"
                       placeholder="First name"
-                      className="w-full px-4 py-3.5 bg-secondary/50 border border-border rounded-xl text-white placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+                      className="w-full px-4 py-3.5 bg-card border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
                     />
                     {signupForm.formState.errors.firstName && (
                       <p className="text-destructive text-xs mt-1 ml-1">{signupForm.formState.errors.firstName.message}</p>
@@ -173,7 +173,7 @@ export default function AuthPage() {
                       {...signupForm.register("lastName")}
                       type="text"
                       placeholder="Last name"
-                      className="w-full px-4 py-3.5 bg-secondary/50 border border-border rounded-xl text-white placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+                      className="w-full px-4 py-3.5 bg-card border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
                     />
                     {signupForm.formState.errors.lastName && (
                       <p className="text-destructive text-xs mt-1 ml-1">{signupForm.formState.errors.lastName.message}</p>
@@ -185,7 +185,7 @@ export default function AuthPage() {
                     {...signupForm.register("email")}
                     type="email"
                     placeholder="Email address"
-                    className="w-full px-4 py-3.5 bg-secondary/50 border border-border rounded-xl text-white placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+                    className="w-full px-4 py-3.5 bg-card border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
                   />
                   {signupForm.formState.errors.email && (
                     <p className="text-destructive text-xs mt-1 ml-1">{signupForm.formState.errors.email.message}</p>
@@ -196,7 +196,7 @@ export default function AuthPage() {
                     {...signupForm.register("password")}
                     type="password"
                     placeholder="Password (min 6 chars)"
-                    className="w-full px-4 py-3.5 bg-secondary/50 border border-border rounded-xl text-white placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+                    className="w-full px-4 py-3.5 bg-card border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
                   />
                   {signupForm.formState.errors.password && (
                     <p className="text-destructive text-xs mt-1 ml-1">{signupForm.formState.errors.password.message}</p>
@@ -205,7 +205,7 @@ export default function AuthPage() {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full py-3.5 mt-2 bg-gradient-to-r from-primary to-violet-500 hover:from-primary/90 hover:to-violet-500/90 text-white rounded-xl font-semibold shadow-lg shadow-primary/25 transition-all flex items-center justify-center group disabled:opacity-70"
+                  className="w-full py-3.5 mt-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl font-semibold shadow-lg shadow-primary/25 transition-all flex items-center justify-center group disabled:opacity-70"
                 >
                   {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : (
                     <>
@@ -224,7 +224,7 @@ export default function AuthPage() {
               setError(null);
               setIsLogin(!isLogin);
             }}
-            className="text-muted-foreground hover:text-white text-sm transition-colors"
+            className="text-muted-foreground hover:text-foreground text-sm transition-colors"
           >
             {isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
           </button>
