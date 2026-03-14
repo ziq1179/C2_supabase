@@ -1,0 +1,1175 @@
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useAuth } from "@/hooks/use-auth";
+import { useNotifications } from "@/hooks/use-notifications";
+import { 
+  useListConversations, 
+  useListMessages, 
+  useSendMessage,
+  getListMessagesQueryKey,
+  getListConversationsQueryKey
+} from "@workspace/api-client-react";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
+import { useParams, useLocation } from "wouter";
+import { format, isToday, isYesterday } from "date-fns";
+import { Send, LogOut, Edit, MessageSquare, Loader2, Menu, Bell, Smile, Video, Trash2, ImagePlus, UserPlus, Copy, Check, X, Pencil, Forward, Mic, Square, Reply } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import EmojiPicker, { Theme } from "emoji-picker-react";
+import { Avatar } from "@/components/Avatar";
+import { AvatarUpload } from "@/components/AvatarUpload";
+import { NewChatDialog } from "@/components/NewChatDialog";
+import { GifPicker } from "@/components/GifPicker";
+import { VideoMessage, isVideoUrl } from "@/components/VideoMessage";
+import { PhotoLightbox } from "@/components/PhotoLightbox";
+import { GroupEditDialog } from "@/components/GroupEditDialog";
+import { ForwardDialog } from "@/components/ForwardDialog";
+import { AudioMessage } from "@/components/AudioMessage";
+import { SwipeableMessage } from "@/components/SwipeableMessage";
+import { ReactionPicker } from "@/components/ReactionPicker";
+import { cn } from "@/lib/utils";
+
+import { compressImage } from "@/lib/compress-image";
+import { usePresence } from "@/hooks/use-presence";
+
+type ReplyTarget = {
+  id: number;
+  senderId: string;
+  content: string;
+  senderFirstName: string;
+};
+
+const GIF_URL_PATTERN = /^https:\/\/(media\d*\.giphy\.com|media\.tenor\.com)\//;
+const IMAGE_DATA_URL_PATTERN = /^data:image\//;
+const AUDIO_DATA_URL_PATTERN = /^data:audio\//;
+
+function summarizeContent(content: string): string {
+  if (IMAGE_DATA_URL_PATTERN.test(content)) return "📷 Photo";
+  if (AUDIO_DATA_URL_PATTERN.test(content)) return "🎤 Voice message";
+  if (GIF_URL_PATTERN.test(content)) return "GIF";
+  if (isVideoUrl(content)) return "🎬 Video";
+  return content.length > 80 ? content.slice(0, 80) + "…" : content;
+}
+
+function formatRecordingDuration(sec: number) {
+  const m = Math.floor(sec / 60).toString().padStart(2, "0");
+  const s = (sec % 60).toString().padStart(2, "0");
+  return `${m}:${s}`;
+}
+
+// Matches strings that contain only emoji characters (and whitespace between them)
+function isEmojiOnly(str: string): boolean {
+  const trimmed = str.trim();
+  if (!trimmed) return false;
+  // Strip ZWJ, variation selectors, combining enclosing keycap, skin tone modifiers
+  const stripped = trimmed.replace(/[\u200D\uFE0F\u20E3\u{1F3FB}-\u{1F3FF}]/gu, "");
+  return /^[\p{Extended_Pictographic}\s]+$/u.test(stripped);
+}
+
+function formatMessageTime(dateStr: string) {
+  const date = new Date(dateStr);
+  if (isToday(date)) return format(date, "h:mm a");
+  if (isYesterday(date)) return "Yesterday";
+  return format(date, "MMM d");
+}
+
+export default function Home() {
+  const { user, logout, refreshUser } = useAuth();
+  const [, setLocation] = useLocation();
+  const params = useParams();
+  const _parsedId = params.id ? parseInt(params.id, 10) : null;
+  const activeConversationId = _parsedId !== null && !isNaN(_parsedId) ? _parsedId : null;
+  
+  const queryClient = useQueryClient();
+  const [isNewChatOpen, setIsNewChatOpen] = useState(false);
+  const [messageText, setMessageText] = useState("");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [typingUsers, setTypingUsers] = useState<string[]>([]);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showGifPicker, setShowGifPicker] = useState(false);
+  const [hoveredMessageId, setHoveredMessageId] = useState<number | null>(null);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [copiedInviteLink, setCopiedInviteLink] = useState(false);
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [showGroupEdit, setShowGroupEdit] = useState(false);
+  const [forwardingContent, setForwardingContent] = useState<string | null>(null);
+  const [replyTo, setReplyTo] = useState<ReplyTarget | null>(null);
+  const [openReactionPickerId, setOpenReactionPickerId] = useState<number | null>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const lastPingSentAt = useRef<number>(0);
+  const stopTypingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isCompressing, setIsCompressing] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Close sidebar on mobile when a conversation is selected
+  useEffect(() => {
+    if (activeConversationId && window.innerWidth < 768) {
+      setIsSidebarOpen(false);
+    }
+  }, [activeConversationId]);
+
+  const { data: conversations, isLoading: isConversationsLoading } = useListConversations({
+    query: { refetchInterval: 5000 }
+  });
+
+  const { data: messages, isLoading: isMessagesLoading } = useListMessages(
+    activeConversationId as number,
+    {
+      query: { 
+        enabled: !!activeConversationId,
+        refetchInterval: 3000 // Poll every 3 seconds
+      }
+    }
+  );
+
+  const sendMessage = useSendMessage({
+    mutation: {
+      onSuccess: () => {
+        setMessageText("");
+        queryClient.invalidateQueries({ queryKey: getListMessagesQueryKey(activeConversationId as number) });
+        queryClient.invalidateQueries({ queryKey: getListConversationsQueryKey() });
+        setTimeout(() => scrollToBottom(), 50);
+      }
+    }
+  });
+
+  const deleteMessage = useMutation({
+    mutationFn: async ({ conversationId, messageId }: { conversationId: number; messageId: number }) => {
+      const res = await fetch(`/api/conversations/${conversationId}/messages/${messageId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to delete message");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: getListMessagesQueryKey(activeConversationId as number) });
+      queryClient.invalidateQueries({ queryKey: getListConversationsQueryKey() });
+    },
+  });
+
+  const toggleReaction = useMutation({
+    mutationFn: async ({ conversationId, messageId, emoji }: { conversationId: number; messageId: number; emoji: string }) => {
+      const res = await fetch(`/api/conversations/${conversationId}/messages/${messageId}/reactions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ emoji }),
+      });
+      if (!res.ok) throw new Error("Failed to toggle reaction");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: getListMessagesQueryKey(activeConversationId as number) });
+    },
+  });
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const handleImageSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !activeConversationId) return;
+    if (!file.type.startsWith("image/")) return;
+    setIsCompressing(true);
+    try {
+      const dataUrl = await compressImage(file);
+      sendMessage.mutate({ conversationId: activeConversationId, data: { content: dataUrl } });
+    } finally {
+      setIsCompressing(false);
+    }
+  };
+
+  const startRecording = async () => {
+    if (!activeConversationId) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      // Pick the best supported format (including full codec string so the Blob is decodable)
+      const preferredTypes = [
+        "audio/webm;codecs=opus",
+        "audio/webm",
+        "audio/ogg;codecs=opus",
+        "audio/mp4",
+      ];
+      const mimeType = preferredTypes.find((t) => MediaRecorder.isTypeSupported(t)) ?? "";
+
+      const recorder = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream);
+
+      mediaRecorderRef.current = recorder;
+      audioChunksRef.current = [];
+
+      // Use timeslice so chunks arrive regularly — makes the final blob well-formed
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      recorder.onstop = () => {
+        // Use the recorder's actual mimeType (includes codec) so the data URL is fully valid
+        const actualType = recorder.mimeType || mimeType || "audio/webm";
+        const blob = new Blob(audioChunksRef.current, { type: actualType });
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const dataUrl = reader.result as string;
+          if (activeConversationId) {
+            sendMessage.mutate({ conversationId: activeConversationId, data: { content: dataUrl } });
+          }
+        };
+        reader.readAsDataURL(blob);
+        stream.getTracks().forEach((t) => t.stop());
+        setIsRecording(false);
+        setRecordingDuration(0);
+        if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+      };
+
+      recorder.start(250); // collect a chunk every 250 ms for reliable blob assembly
+      setIsRecording(true);
+      setRecordingDuration(0);
+      recordingTimerRef.current = setInterval(() => setRecordingDuration((d) => d + 1), 1000);
+    } catch {
+      alert("Microphone access was denied. Please allow it in your browser settings.");
+    }
+  };
+
+  const stopRecording = () => {
+    mediaRecorderRef.current?.stop();
+  };
+
+  const cancelRecording = () => {
+    const rec = mediaRecorderRef.current;
+    if (rec) {
+      rec.ondataavailable = null;
+      rec.onstop = null;
+      try { rec.stop(); } catch { /* ignore */ }
+      mediaRecorderRef.current = null;
+    }
+    setIsRecording(false);
+    setRecordingDuration(0);
+    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  // Poll for who's typing every 2 seconds when a conversation is active
+  useEffect(() => {
+    if (!activeConversationId) { setTypingUsers([]); return; }
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/conversations/${activeConversationId}/typing`, { credentials: "include" });
+        if (res.ok) {
+          const data = await res.json();
+          setTypingUsers(data.typing ?? []);
+        }
+      } catch { /* ignore */ }
+    };
+    poll();
+    const interval = setInterval(poll, 2000);
+    return () => clearInterval(interval);
+  }, [activeConversationId]);
+
+  // Reset typing + reply state when switching conversations
+  useEffect(() => { setTypingUsers([]); setReplyTo(null); }, [activeConversationId]);
+
+  const sendTypingPing = useCallback(async (convId: number) => {
+    const now = Date.now();
+    // Rate-limit: send at most once every 2 seconds
+    if (now - lastPingSentAt.current < 2000) return;
+    lastPingSentAt.current = now;
+    try {
+      await fetch(`/api/conversations/${convId}/typing`, {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch { /* ignore */ }
+  }, []);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setMessageText(e.target.value);
+    if (activeConversationId && e.target.value.trim()) {
+      sendTypingPing(activeConversationId);
+      // Clear any pending stop-typing timer and restart it
+      if (stopTypingTimer.current) clearTimeout(stopTypingTimer.current);
+      stopTypingTimer.current = setTimeout(() => {
+        lastPingSentAt.current = 0; // Allow next keystroke to ping immediately
+      }, 3000);
+    }
+  };
+
+  const handleSend = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!messageText.trim() || !activeConversationId) return;
+    if (stopTypingTimer.current) clearTimeout(stopTypingTimer.current);
+    lastPingSentAt.current = 0;
+    const text = messageText;
+    const currentReplyTo = replyTo;
+    setMessageText("");
+    setReplyTo(null);
+    sendMessage.mutate({ 
+      conversationId: activeConversationId, 
+      data: { content: text, replyToId: currentReplyTo?.id ?? null } 
+    });
+    inputRef.current?.focus();
+  };
+
+  const handleGifSelect = (url: string) => {
+    if (!activeConversationId) return;
+    setShowGifPicker(false);
+    sendMessage.mutate({
+      conversationId: activeConversationId,
+      data: { content: url },
+    });
+  };
+
+  // Close emoji picker when clicking outside
+  useEffect(() => {
+    if (!showEmojiPicker) return;
+    const handler = (e: MouseEvent) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showEmojiPicker]);
+
+  const typingLabel = typingUsers.length === 1
+    ? `${typingUsers[0]} is typing`
+    : typingUsers.length === 2
+    ? `${typingUsers[0]} and ${typingUsers[1]} are typing`
+    : typingUsers.length > 2
+    ? "Several people are typing"
+    : null;
+
+  const { permission, requestPermission, unread } = useNotifications(
+    conversations as any,
+    user?.id,
+    activeConversationId,
+  );
+
+  // Update browser tab title with total unread count
+  useEffect(() => {
+    const total = Array.from(unread.values()).reduce((a, b) => a + b, 0);
+    document.title = total > 0 ? `(${total}) Connect` : "Connect";
+    return () => { document.title = "Connect"; };
+  }, [unread]);
+
+  const activeConversation = conversations?.find(c => c.id === activeConversationId);
+  const getConversationName = (conv: any) => {
+    if (conv.name) return conv.name;
+    const others = conv.participants.filter((p: any) => p.userId !== user?.id);
+    if (others.length === 0) return "Just you";
+    if (others.length === 1) return `${others[0].firstName} ${others[0].lastName}`;
+    return others.map((o: any) => o.firstName).join(", ");
+  };
+  
+  const getConversationAvatar = (conv: any) => {
+    if (conv.avatarUrl) return conv.avatarUrl;
+    const others = conv.participants.filter((p: any) => p.userId !== user?.id);
+    if (others.length !== 1) return null;
+    return others[0].avatarUrl ?? null;
+  };
+
+  // Collect all other-participant IDs to watch for online status
+  const watchIds = useMemo(() => {
+    if (!conversations) return [];
+    const ids = new Set<string>();
+    for (const conv of conversations) {
+      for (const p of conv.participants) {
+        if (p.userId !== user?.id) ids.add(p.userId);
+      }
+    }
+    return Array.from(ids);
+  }, [conversations, user?.id]);
+
+  const onlineIds = usePresence(watchIds);
+
+  // For a DM conversation: returns whether the other person is online
+  const isDMOnline = (conv: any): boolean => {
+    const others = conv.participants.filter((p: any) => p.userId !== user?.id);
+    if (others.length !== 1) return false;
+    return onlineIds.has(others[0].userId);
+  };
+
+  return (
+    <div className="flex h-[100dvh] overflow-hidden bg-background">
+      {/* Sidebar — on mobile: occupies full screen and toggles with the chat area.
+           No absolute positioning to avoid iOS Safari touch-event clipping. */}
+      <div 
+        className={cn(
+          "flex-shrink-0 flex-col border-r border-border bg-card w-full md:w-80 lg:w-96 min-h-0 overflow-hidden",
+          isSidebarOpen ? "flex" : "hidden md:flex"
+        )}
+      >
+        <div className="p-4 border-b border-border flex items-center justify-between bg-card/50 backdrop-blur-sm shrink-0">
+          <div className="flex items-center gap-3">
+            <AvatarUpload
+              name={`${user?.firstName} ${user?.lastName}`}
+              currentAvatarUrl={user?.avatarUrl}
+              size="sm"
+              onUploaded={() => refreshUser()}
+            />
+            <div className="font-display font-semibold text-foreground">Messages</div>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setShowInviteModal(true)}
+              className="p-2 rounded-full hover:bg-secondary text-muted-foreground hover:text-primary transition-colors"
+              title="Invite people"
+            >
+              <UserPlus className="w-5 h-5" />
+            </button>
+            <button 
+              onClick={() => setIsNewChatOpen(true)}
+              className="p-2 rounded-full hover:bg-secondary text-foreground transition-colors"
+              title="New Chat"
+            >
+              <Edit className="w-5 h-5" />
+            </button>
+            <button 
+              onClick={() => logout()}
+              className="p-2 rounded-full hover:bg-secondary text-muted-foreground hover:text-destructive transition-colors"
+              title="Logout"
+            >
+              <LogOut className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Notification permission nudge */}
+        {permission === "default" && (
+          <div className="mx-3 mt-2 mb-1 flex items-center gap-2 rounded-xl bg-primary/10 border border-primary/20 px-3 py-2">
+            <Bell className="w-4 h-4 text-primary shrink-0" />
+            <span className="text-xs text-foreground flex-1">Get notified about new messages</span>
+            <button
+              onClick={requestPermission}
+              className="text-xs font-semibold text-primary hover:text-primary/80 transition-colors whitespace-nowrap"
+            >
+              Enable
+            </button>
+          </div>
+        )}
+
+        <div className="flex-1 overflow-y-auto p-2 space-y-1">
+          {isConversationsLoading ? (
+            <div className="p-4 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+          ) : conversations?.length === 0 ? (
+            <div className="text-center p-8 text-muted-foreground flex flex-col items-center">
+              <MessageSquare className="w-10 h-10 mb-3 opacity-20" />
+              <p className="text-sm">No conversations yet.<br/>Start one!</p>
+            </div>
+          ) : (
+            conversations?.map((conv) => {
+              const name = getConversationName(conv);
+              const isActive = conv.id === activeConversationId;
+              return (
+                <button
+                  key={conv.id}
+                  onClick={() => setLocation(`/c/${conv.id}`)}
+                  className={cn(
+                    "w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left",
+                    isActive ? "bg-primary/10 text-foreground" : "hover:bg-secondary/60 text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <Avatar name={name} src={getConversationAvatar(conv)} online={isDMOnline(conv)} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-baseline mb-0.5">
+                      <div className={cn(
+                        "font-medium truncate text-sm",
+                        unread.get(conv.id) ? "text-foreground" : "text-foreground"
+                      )}>
+                        {name}
+                      </div>
+                      <div className="flex items-center gap-1.5 ml-2 shrink-0">
+                        {conv.lastMessage && (
+                          <div className="text-[10px] whitespace-nowrap opacity-60">
+                            {formatMessageTime(conv.lastMessage.createdAt)}
+                          </div>
+                        )}
+                        {(unread.get(conv.id) ?? 0) > 0 && (
+                          <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-white text-[10px] font-bold">
+                            {(unread.get(conv.id) ?? 0) > 99 ? "99+" : unread.get(conv.id)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className={cn(
+                      "text-xs truncate",
+                      (unread.get(conv.id) ?? 0) > 0 ? "font-medium text-foreground" : "opacity-70"
+                    )}>
+                      {conv.lastMessage ? (
+                        <>
+                          {conv.lastMessage.senderId === user?.id ? "You: " : ""}
+                          {conv.lastMessage.deleted
+                            ? "Message deleted"
+                            : IMAGE_DATA_URL_PATTERN.test(conv.lastMessage.content)
+                            ? "📷 Photo"
+                            : AUDIO_DATA_URL_PATTERN.test(conv.lastMessage.content)
+                            ? "🎤 Voice message"
+                            : GIF_URL_PATTERN.test(conv.lastMessage.content)
+                            ? "GIF"
+                            : isVideoUrl(conv.lastMessage.content)
+                            ? "🎬 Video"
+                            : conv.lastMessage.content}
+                        </>
+                      ) : (
+                        "No messages yet"
+                      )}
+                    </div>
+                  </div>
+                </button>
+              );
+            })
+          )}
+        </div>
+      </div>
+
+      {/* Main Chat Area — on mobile: only shown when sidebar is closed */}
+      <div className={cn(
+        "flex-1 flex-col min-h-0 min-w-0 bg-background overflow-hidden",
+        isSidebarOpen ? "hidden md:flex" : "flex"
+      )}>
+        {activeConversationId ? (
+          <>
+            {/* Chat Header */}
+            <div className="h-16 px-4 flex items-center border-b border-border bg-card/50 backdrop-blur-sm shrink-0">
+              <button 
+                className="md:hidden p-2 -ml-2 mr-2 rounded-full hover:bg-secondary text-foreground"
+                onClick={() => setIsSidebarOpen(true)}
+              >
+                <Menu className="w-5 h-5" />
+              </button>
+              {activeConversation && (
+                <div className="flex items-center gap-3 min-w-0">
+                  <Avatar
+                    name={getConversationName(activeConversation)}
+                    src={getConversationAvatar(activeConversation)}
+                    size="md"
+                    online={isDMOnline(activeConversation)}
+                    onClick={() => { const s = getConversationAvatar(activeConversation); if (s) setLightboxSrc(s); }}
+                  />
+                  <div className="flex flex-col min-w-0">
+                    <div className="font-display font-semibold text-foreground truncate leading-tight">
+                      {getConversationName(activeConversation)}
+                    </div>
+                    {isDMOnline(activeConversation) && (
+                      <span className="text-xs text-emerald-500 font-medium leading-tight">Online</span>
+                    )}
+                  </div>
+                  {/* Edit button — only for groups (conversations with a name) */}
+                  {activeConversation.name && (
+                    <button
+                      onClick={() => setShowGroupEdit(true)}
+                      title="Edit group"
+                      className="p-1.5 rounded-full hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Chat Messages */}
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
+              {isMessagesLoading ? (
+                <div className="flex justify-center p-8"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+              ) : messages?.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
+                  <MessageSquare className="w-12 h-12 mb-4 opacity-20" />
+                  <p>Send a message to start the conversation.</p>
+                </div>
+              ) : (
+                messages?.map((msg, index) => {
+                  const isOwn = msg.senderId === user?.id;
+                  const showAvatar = !isOwn && (index === 0 || messages[index - 1].senderId !== msg.senderId);
+                  
+                  return (
+                    <SwipeableMessage key={msg.id} onReply={() => { setReplyTo(msg); inputRef.current?.focus(); }}>
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className={cn("flex w-full group/msg", isOwn ? "justify-end" : "justify-start")}
+                      onMouseEnter={() => !msg.deleted && setHoveredMessageId(msg.id)}
+                      onMouseLeave={() => setHoveredMessageId(null)}
+                    >
+                      <div className={cn("flex items-end max-w-[75%] gap-1.5", isOwn ? "flex-row-reverse" : "flex-row")}>
+                        {!isOwn && (
+                          <div className="w-8 flex-shrink-0 flex items-end">
+                            {showAvatar ? (
+                              <Avatar 
+                                name={`${msg.senderFirstName} ${msg.senderLastName}`} 
+                                src={null} 
+                                size="sm" 
+                              />
+                            ) : <div className="w-8" />}
+                          </div>
+                        )}
+
+                        {/* Action buttons for OWN messages — sit to the right of the bubble (flex-row-reverse) */}
+                        {isOwn && !msg.deleted && (
+                          <div className={cn(
+                            "flex items-center gap-0.5 transition-all shrink-0",
+                            hoveredMessageId === msg.id ? "opacity-100" : "opacity-0 pointer-events-none"
+                          )}>
+                            <div className="relative">
+                              <button
+                                title="React"
+                                onClick={() => setOpenReactionPickerId(prev => prev === msg.id ? null : msg.id)}
+                                className="p-1.5 rounded-full text-muted-foreground hover:text-yellow-500 hover:bg-yellow-500/10 transition-colors"
+                              >
+                                <Smile className="w-3.5 h-3.5" />
+                              </button>
+                              {openReactionPickerId === msg.id && (
+                                <ReactionPicker
+                                  isOwn={isOwn}
+                                  onSelect={(emoji) => toggleReaction.mutate({ conversationId: msg.conversationId, messageId: msg.id, emoji })}
+                                  onClose={() => setOpenReactionPickerId(null)}
+                                />
+                              )}
+                            </div>
+                            <button
+                              title="Reply"
+                              onClick={() => { setReplyTo(msg); inputRef.current?.focus(); }}
+                              className="p-1.5 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                            >
+                              <Reply className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              title="Forward message"
+                              onClick={() => setForwardingContent(msg.content)}
+                              className="p-1.5 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                            >
+                              <Forward className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              title="Delete message"
+                              onClick={() => {
+                                if (confirm("Delete this message for everyone?")) {
+                                  deleteMessage.mutate({ conversationId: msg.conversationId, messageId: msg.id });
+                                }
+                              }}
+                              className="p-1.5 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
+                        
+                        <div className={cn("flex flex-col", isOwn ? "items-end" : "items-start")}>
+                          {showAvatar && (
+                            <span className="text-xs text-muted-foreground ml-1 mb-1">{msg.senderFirstName}</span>
+                          )}
+
+                          {/* Reply quote */}
+                          {!msg.deleted && msg.replyToId && (
+                            <div className={cn(
+                              "mb-1.5 px-2.5 py-1.5 rounded-xl text-xs border-l-2 max-w-[240px] w-full",
+                              isOwn
+                                ? "border-white/60 bg-white/20 text-white/90"
+                                : "border-primary/70 bg-primary/10 text-foreground"
+                            )}>
+                              <div className="font-semibold mb-0.5 truncate">
+                                {msg.replyToSenderFirstName ?? "Deleted user"}
+                              </div>
+                              <div className="truncate opacity-80">
+                                {msg.replyToContent
+                                  ? summarizeContent(msg.replyToContent)
+                                  : "Message deleted"}
+                              </div>
+                            </div>
+                          )}
+
+                          {msg.deleted ? (
+                            <div className={cn(
+                              "px-4 py-2.5 rounded-2xl text-[14px] italic text-muted-foreground border border-dashed",
+                              isOwn ? "rounded-br-sm border-border/60" : "rounded-bl-sm border-border/60"
+                            )}>
+                              Message deleted
+                            </div>
+                          ) : IMAGE_DATA_URL_PATTERN.test(msg.content) ? (
+                            <div className={cn("rounded-2xl overflow-hidden shadow-sm", isOwn ? "rounded-br-sm" : "rounded-bl-sm")}>
+                              <img
+                                src={msg.content}
+                                alt="Photo"
+                                className="max-w-[260px] w-full object-cover block cursor-pointer hover:brightness-90 transition-all"
+                                loading="lazy"
+                                onClick={() => setLightboxSrc(msg.content)}
+                              />
+                            </div>
+                          ) : GIF_URL_PATTERN.test(msg.content) ? (
+                            <div className={cn("rounded-2xl overflow-hidden shadow-sm", isOwn ? "rounded-br-sm" : "rounded-bl-sm")}>
+                              <img
+                                src={msg.content}
+                                alt="GIF"
+                                className="max-w-[220px] w-full object-cover block"
+                                loading="lazy"
+                              />
+                            </div>
+                          ) : isVideoUrl(msg.content) ? (
+                            <VideoMessage url={msg.content} isOwn={isOwn} />
+                          ) : AUDIO_DATA_URL_PATTERN.test(msg.content) ? (
+                            <AudioMessage dataUrl={msg.content} isOwn={isOwn} />
+                          ) : isEmojiOnly(msg.content) ? (
+                            <div className="text-5xl leading-none select-text py-1">
+                              {msg.content}
+                            </div>
+                          ) : (
+                            <div
+                              className={cn(
+                                "px-4 py-2.5 rounded-2xl text-[15px] leading-relaxed break-words",
+                                isOwn 
+                                  ? "bg-gradient-to-br from-primary to-violet-500 text-white rounded-br-sm shadow-sm" 
+                                  : "bg-secondary text-secondary-foreground rounded-bl-sm border border-white/5"
+                              )}
+                            >
+                              {msg.content}
+                            </div>
+                          )}
+                          {/* Reaction pills */}
+                          {msg.reactions && msg.reactions.length > 0 && (
+                            <div className={cn("flex flex-wrap gap-1 mt-1", isOwn ? "justify-end" : "justify-start")}>
+                              {msg.reactions.map(({ emoji, count, userIds }) => {
+                                const reacted = userIds.includes(user?.id ?? "");
+                                return (
+                                  <button
+                                    key={emoji}
+                                    type="button"
+                                    onClick={() => toggleReaction.mutate({ conversationId: msg.conversationId, messageId: msg.id, emoji })}
+                                    className={cn(
+                                      "flex items-center gap-1 px-2 py-0.5 rounded-full text-xs border transition-all active:scale-90",
+                                      reacted
+                                        ? "bg-primary/20 border-primary/40 text-primary font-medium"
+                                        : "bg-secondary border-border text-foreground hover:bg-secondary/80"
+                                    )}
+                                    title={reacted ? "Remove reaction" : "React"}
+                                  >
+                                    <span>{emoji}</span>
+                                    {count > 1 && <span>{count}</span>}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          <span className="text-[10px] text-muted-foreground mt-1 px-1">
+                            {format(new Date(msg.createdAt), "h:mm a")}
+                          </span>
+                        </div>
+
+                        {/* Action buttons for OTHERS' messages — sit to the right of the bubble (flex-row) */}
+                        {!isOwn && !msg.deleted && (
+                          <div className={cn(
+                            "flex items-center self-center gap-0.5 transition-all shrink-0",
+                            hoveredMessageId === msg.id ? "opacity-100" : "opacity-0 pointer-events-none"
+                          )}>
+                            <div className="relative">
+                              <button
+                                title="React"
+                                onClick={() => setOpenReactionPickerId(prev => prev === msg.id ? null : msg.id)}
+                                className="p-1.5 rounded-full text-muted-foreground hover:text-yellow-500 hover:bg-yellow-500/10 transition-colors"
+                              >
+                                <Smile className="w-3.5 h-3.5" />
+                              </button>
+                              {openReactionPickerId === msg.id && (
+                                <ReactionPicker
+                                  isOwn={isOwn}
+                                  onSelect={(emoji) => toggleReaction.mutate({ conversationId: msg.conversationId, messageId: msg.id, emoji })}
+                                  onClose={() => setOpenReactionPickerId(null)}
+                                />
+                              )}
+                            </div>
+                            <button
+                              title="Reply"
+                              onClick={() => { setReplyTo(msg); inputRef.current?.focus(); }}
+                              className="p-1.5 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                            >
+                              <Reply className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              title="Forward message"
+                              onClick={() => setForwardingContent(msg.content)}
+                              className="p-1.5 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                            >
+                              <Forward className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                    </SwipeableMessage>
+                  );
+                })
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Chat Input */}
+            <div className="px-4 pb-4 bg-background border-t border-border pt-2">
+              {/* Typing indicator */}
+              <div className="h-5 mb-1 px-1">
+                <AnimatePresence>
+                  {typingLabel && (
+                    <motion.div
+                      key="typing"
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 4 }}
+                      transition={{ duration: 0.2 }}
+                      className="flex items-center gap-1.5 text-xs text-muted-foreground"
+                    >
+                      <span className="flex gap-0.5">
+                        {[0, 1, 2].map((i) => (
+                          <motion.span
+                            key={i}
+                            className="inline-block w-1 h-1 rounded-full bg-muted-foreground"
+                            animate={{ y: [0, -3, 0] }}
+                            transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.15, ease: "easeInOut" }}
+                          />
+                        ))}
+                      </span>
+                      <span>{typingLabel}</span>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* GIF picker popup */}
+              <AnimatePresence>
+                {showGifPicker && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 8 }}
+                    transition={{ duration: 0.15 }}
+                    className="mb-2"
+                  >
+                    <GifPicker onSelect={handleGifSelect} onClose={() => setShowGifPicker(false)} />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Reply preview bar */}
+              <AnimatePresence>
+                {replyTo && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 6 }}
+                    transition={{ duration: 0.15 }}
+                    className="flex items-center gap-2 px-3 py-2 mb-1 rounded-xl bg-secondary/60 border border-border"
+                  >
+                    <div className="w-0.5 self-stretch bg-primary rounded-full" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-semibold text-primary truncate">
+                        {replyTo.senderId === user?.id ? "You" : replyTo.senderFirstName}
+                      </div>
+                      <div className="text-xs text-muted-foreground truncate">
+                        {summarizeContent(replyTo.content)}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setReplyTo(null)}
+                      className="p-1 rounded-full hover:bg-secondary transition-colors shrink-0"
+                    >
+                      <X className="w-3.5 h-3.5 text-muted-foreground" />
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <form onSubmit={handleSend} className="flex flex-col gap-2">
+                {/* Text input row — swaps to recording UI while mic is active */}
+                {isRecording ? (
+                  <div className="flex items-center gap-2 px-4 py-3 bg-secondary/50 border border-red-500/50 rounded-full">
+                    <span className="flex h-2.5 w-2.5 shrink-0">
+                      <span className="animate-ping absolute inline-flex h-2.5 w-2.5 rounded-full bg-red-500 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
+                    </span>
+                    <span className="text-sm text-red-400 font-medium tabular-nums flex-1">
+                      Recording {formatRecordingDuration(recordingDuration)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={cancelRecording}
+                      className="p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                      title="Cancel recording"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={stopRecording}
+                      className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors shadow-md"
+                      title="Stop and send"
+                    >
+                      <Square className="w-3.5 h-3.5 fill-white" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <input
+                      ref={inputRef}
+                      type="text"
+                      value={messageText}
+                      onChange={handleInputChange}
+                      placeholder="Type a message..."
+                      className="w-full pl-5 pr-14 py-3.5 bg-secondary/50 border border-border rounded-full text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all shadow-sm"
+                    />
+                    <button
+                      type="submit"
+                      disabled={!messageText.trim() || sendMessage.isPending}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 bg-primary text-white rounded-full hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100 transition-all shadow-md"
+                    >
+                      {sendMessage.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4 ml-0.5" />}
+                    </button>
+                  </div>
+                )}
+
+                {/* Media / action icons — wraps on small widths */}
+                <div className="flex flex-wrap items-center gap-1 px-1">
+                  {/* Emoji button */}
+                  <div className="relative" ref={emojiPickerRef}>
+                    <button
+                      type="button"
+                      onClick={() => { setShowEmojiPicker(p => !p); setShowGifPicker(false); }}
+                      className="p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                      title="Emoji"
+                    >
+                      <Smile className="w-5 h-5" />
+                    </button>
+                    {showEmojiPicker && (
+                      <div className="absolute bottom-10 left-0 z-50">
+                        <EmojiPicker
+                          theme={Theme.DARK}
+                          onEmojiClick={(emojiData) => {
+                            setMessageText(prev => prev + emojiData.emoji);
+                            inputRef.current?.focus();
+                          }}
+                          width={300}
+                          height={380}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* GIF button */}
+                  <button
+                    type="button"
+                    onClick={() => { setShowGifPicker(p => !p); setShowEmojiPicker(false); }}
+                    className={cn(
+                      "px-2 py-1 rounded-lg text-xs font-bold border transition-colors",
+                      showGifPicker
+                        ? "bg-primary text-white border-primary"
+                        : "text-muted-foreground border-border hover:text-foreground hover:border-foreground"
+                    )}
+                    title="Send a GIF"
+                  >
+                    GIF
+                  </button>
+
+                  {/* Hidden image file input */}
+                  <input
+                    ref={imageInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleImageSelected}
+                  />
+
+                  {/* Image button */}
+                  <button
+                    type="button"
+                    disabled={isCompressing || !activeConversationId}
+                    onClick={() => imageInputRef.current?.click()}
+                    className="p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors disabled:opacity-40"
+                    title="Send a photo"
+                  >
+                    {isCompressing
+                      ? <Loader2 className="w-5 h-5 animate-spin" />
+                      : <ImagePlus className="w-5 h-5" />}
+                  </button>
+
+                  {/* Video link button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const url = prompt("Paste a YouTube, Vimeo, or direct video link:");
+                      if (url?.trim() && activeConversationId) {
+                        sendMessage.mutate({ conversationId: activeConversationId, data: { content: url.trim() } });
+                      }
+                    }}
+                    className="p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                    title="Share a video link"
+                  >
+                    <Video className="w-5 h-5" />
+                  </button>
+
+                  {/* Microphone button */}
+                  <button
+                    type="button"
+                    disabled={!activeConversationId || isRecording}
+                    onClick={startRecording}
+                    className="p-2 rounded-full text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-40"
+                    title="Record a voice message"
+                  >
+                    <Mic className="w-5 h-5" />
+                  </button>
+                </div>
+              </form>
+            </div>
+          </>
+        ) : (
+          <div className="hidden md:flex h-full flex-col items-center justify-center text-muted-foreground bg-gradient-to-b from-background to-secondary/20">
+            <div className="w-20 h-20 bg-secondary/80 rounded-3xl flex items-center justify-center mb-6 shadow-xl border border-white/5 transform -rotate-6">
+              <MessageSquare className="w-10 h-10 text-primary/80" />
+            </div>
+            <h2 className="text-2xl font-display font-semibold text-foreground mb-2">Welcome to Connect</h2>
+            <p>Select a conversation or start a new one.</p>
+            <button 
+              onClick={() => setIsNewChatOpen(true)}
+              className="mt-6 px-6 py-3 bg-primary text-white rounded-xl font-semibold shadow-lg shadow-primary/25 hover:-translate-y-0.5 transition-all"
+            >
+              Start New Chat
+            </button>
+          </div>
+        )}
+      </div>
+
+      <NewChatDialog 
+        isOpen={isNewChatOpen} 
+        onClose={() => setIsNewChatOpen(false)} 
+        onSelectConversation={(id) => {
+          setLocation(`/c/${id}`);
+          setIsSidebarOpen(false);
+        }} 
+      />
+
+      {/* Invite modal */}
+      <AnimatePresence>
+        {showInviteModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm"
+            onClick={() => setShowInviteModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 8 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 8 }}
+              transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden"
+            >
+              {/* Gradient header banner */}
+              <div className="relative bg-gradient-to-br from-primary/20 via-violet-500/10 to-transparent px-6 pt-6 pb-5">
+                <button
+                  onClick={() => setShowInviteModal(false)}
+                  className="absolute top-4 right-4 p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-violet-500 flex items-center justify-center shadow-lg shadow-primary/30">
+                    <UserPlus className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="font-display font-semibold text-foreground text-base leading-tight">Invite to Connect</h2>
+                    <p className="text-xs text-muted-foreground">Free forever · No credit card</p>
+                  </div>
+                </div>
+                {/* Intro blurb */}
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Share this link and your friend can create a free account, see your name as the person who invited them, and start chatting instantly.
+                </p>
+              </div>
+
+              <div className="px-6 pb-6 pt-4 flex flex-col gap-4">
+                {/* Pre-written message */}
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5">Suggested message</p>
+                  <div className="p-3 rounded-xl bg-secondary border border-border text-sm text-foreground leading-relaxed select-all whitespace-pre-wrap">
+                    {`Ye app Zafar ne banai ha, free ha aajo sab 🎉\n\nHey! I've been using Connect to chat — it's simple, free, and great for sharing photos, GIFs and videos too.\n\nJoin me here: ${window.location.origin}/invite?from=${encodeURIComponent(user?.firstName ?? "")}`}
+                  </div>
+                </div>
+
+                {/* Copy buttons */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      const msg = `Ye app Zafar ne banai ha, free ha aajo sab 🎉\n\nHey! I've been using Connect to chat — it's simple, free, and great for sharing photos, GIFs and videos too.\n\nJoin me here: ${window.location.origin}/invite?from=${encodeURIComponent(user?.firstName ?? "")}`;
+                      navigator.clipboard.writeText(msg).then(() => {
+                        setCopiedInviteLink(true);
+                        setTimeout(() => setCopiedInviteLink(false), 2500);
+                      });
+                    }}
+                    className={cn(
+                      "flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold transition-all",
+                      copiedInviteLink
+                        ? "bg-emerald-500/15 text-emerald-500 border border-emerald-500/30"
+                        : "bg-gradient-to-r from-primary to-violet-500 text-white hover:opacity-90 shadow-md shadow-primary/20"
+                    )}
+                  >
+                    {copiedInviteLink ? (
+                      <><Check className="w-4 h-4" /> Copied!</>
+                    ) : (
+                      <><Copy className="w-4 h-4" /> Copy message</>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => {
+                      const link = `${window.location.origin}/invite?from=${encodeURIComponent(user?.firstName ?? "")}`;
+                      navigator.clipboard.writeText(link).then(() => {
+                        setCopiedInviteLink(true);
+                        setTimeout(() => setCopiedInviteLink(false), 2500);
+                      });
+                    }}
+                    className="px-4 py-2.5 rounded-xl text-sm font-semibold border border-border bg-secondary hover:bg-muted text-foreground transition-all"
+                    title="Copy link only"
+                  >
+                    Link only
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {activeConversation?.name && (
+        <GroupEditDialog
+          isOpen={showGroupEdit}
+          onClose={() => setShowGroupEdit(false)}
+          conversationId={activeConversation.id}
+          currentName={activeConversation.name}
+          currentAvatarUrl={activeConversation.avatarUrl ?? null}
+          participants={activeConversation.participants ?? []}
+          onSaved={() => {
+            queryClient.invalidateQueries({ queryKey: getListConversationsQueryKey() });
+          }}
+        />
+      )}
+
+      <ForwardDialog
+        isOpen={forwardingContent !== null}
+        onClose={() => setForwardingContent(null)}
+        messageContent={forwardingContent ?? ""}
+        conversations={conversations ?? []}
+        currentUserId={user?.id ?? ""}
+      />
+
+      <PhotoLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
+    </div>
+  );
+}
