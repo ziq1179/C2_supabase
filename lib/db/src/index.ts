@@ -11,10 +11,9 @@ if (!process.env.DATABASE_URL) {
 }
 
 let connectionString = process.env.DATABASE_URL;
-const isSupabaseDev =
-  connectionString?.includes("supabase.com") &&
-  process.env.NODE_ENV === "development";
-if (isSupabaseDev) {
+// Supabase's pooler cert chain can fail strict verification with Node.js pg
+const isSupabase = connectionString?.includes("supabase.com");
+if (isSupabase && connectionString.includes("sslmode=require")) {
   connectionString = connectionString.replace(
     "sslmode=require",
     "sslmode=no-verify"
