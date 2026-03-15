@@ -102,7 +102,7 @@ export function createSignalingServer(httpServer: HttpServer): Server {
 
     socket.on(
       "call:answer",
-      (data: { toUserId: string; sdp: SdpLike; callId?: string }) => {
+      async (data: { toUserId: string; sdp: SdpLike; callId?: string }) => {
         const { toUserId, sdp, callId } = data;
         if (!toUserId || !sdp) return;
         io.to(`user:${toUserId}`).emit("call:answer", {
@@ -125,7 +125,7 @@ export function createSignalingServer(httpServer: HttpServer): Server {
 
     socket.on(
       "call:decline",
-      (data: { toUserId: string; callId?: string }) => {
+      async (data: { toUserId: string; callId?: string }) => {
         const { toUserId, callId } = data;
         if (!toUserId) return;
         io.to(`user:${toUserId}`).emit("call:decline", { fromUserId: userId });
@@ -133,7 +133,7 @@ export function createSignalingServer(httpServer: HttpServer): Server {
       }
     );
 
-    socket.on("call:end", (data: { toUserId: string; callId?: string }) => {
+    socket.on("call:end", async (data: { toUserId: string; callId?: string }) => {
       const { toUserId, callId } = data;
       if (!toUserId) return;
       io.to(`user:${toUserId}`).emit("call:end", { fromUserId: userId });
