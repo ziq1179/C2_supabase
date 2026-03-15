@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite --config vite.config.ts --host 0.0.0.0",
     "generate-icons": "node scripts/generate-pwa-icons.js",
-    "build": "pnpm run generate-icons && vite build --config vite.config.ts",
+    "build": "(pnpm run generate-icons || true) && vite build --config vite.config.ts",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

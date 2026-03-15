@@ -2,13 +2,19 @@
 # Deploy: Connect your GitHub repo at dashboard.render.com, Render will detect this file
 #
 # Required: Add these Environment Variables in Render Dashboard:
-#   DATABASE_URL    - Your Supabase PostgreSQL connection string
+#   DATABASE_URL    - Your Supabase PostgreSQL connection string (use ?sslmode=no-verify for Supabase)
 #   SESSION_SECRET  - Random string (e.g. run: openssl rand -hex 32)
+#
+# Auto-deploy: Enable in Render Dashboard → Service → Settings → Build & Deploy → Auto-Deploy: Yes
+# Build cache: If deploy shows old content, use "Clear build cache & deploy"
 
 services:
   - type: web
     name: chatconnect
     runtime: node
+
+    # Deploy from main branch
+    branch: main
 
     buildCommand: |
       corepack enable pnpm
@@ -20,6 +26,8 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: RENDER
+        value: "true"
       - key: DATABASE_URL
         sync: false
       - key: SESSION_SECRET

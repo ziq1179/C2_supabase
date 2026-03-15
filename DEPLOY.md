@@ -6,6 +6,23 @@
 - [Render](https://render.com) account
 - GitHub repo with your code pushed
 
+## Troubleshooting
+
+### No auto-deploy on push
+1. Render Dashboard → your service → **Settings** → **Build & Deploy**
+2. Set **Auto-Deploy** to **Yes**
+3. Ensure **Branch** is `main` (or your deploy branch)
+4. If using Blueprint: **Dashboard** → **Blueprints** → your blueprint → **Sync** to apply render.yaml changes
+
+### Deploy shows old content (no call history, old theme)
+1. **Clear build cache**: Render Dashboard → your service → **Manual Deploy** → **Clear build cache & deploy**
+2. Hard refresh browser: Ctrl+Shift+R (Windows) or Cmd+Shift+R (Mac)
+3. Check build logs for errors (db push or frontend build failing)
+
+### Database connection fails during build
+For Supabase, add `sslmode=no-verify` to your connection string:
+`postgresql://...?sslmode=no-verify` (or change `sslmode=require` to `sslmode=no-verify`)
+
 ## Steps
 
 ### 1. Connect your GitHub repo
