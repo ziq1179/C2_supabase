@@ -42,14 +42,18 @@ async function buildAll() {
   await rm(distDir, { recursive: true, force: true });
 
   console.log("pushing database schema...");
-  const pushCmd =
-    process.env.CI || process.env.RENDER
-      ? "pnpm --filter @workspace/db run push-force:ci"
-      : "pnpm --filter @workspace/db run push-force";
-  execSync(pushCmd, {
-    cwd: path.resolve(__dirname, "..", ".."),
-    stdio: "inherit",
-  });
+  try {
+    const pushCmd =
+      process.env.CI || process.env.RENDER
+        ? "pnpm --filter @workspace/db run push-force:ci"
+        : "pnpm --filter @workspace/db run push-force";
+    execSync(pushCmd, {
+      cwd: path.resolve(__dirname, "..", ".."),
+      stdio: "inherit",
+    });
+  } catch (err) {
+    console.warn("DB push failed (migrations will run on server start):", err);
+  }
 
   console.log("building frontend...");
   const frontendDir = path.resolve(__dirname, "..", "messaging-app");
