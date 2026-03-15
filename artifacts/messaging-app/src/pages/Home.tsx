@@ -11,7 +11,7 @@ import {
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
 import { format, isToday, isYesterday } from "date-fns";
-import { Send, LogOut, Edit, MessageSquare, Loader2, Menu, Bell, Smile, Video, Trash2, ImagePlus, UserPlus, Copy, Check, X, Pencil, Forward, Mic, Square, Reply, Phone } from "lucide-react";
+import { Send, LogOut, Edit, MessageSquare, Loader2, Menu, Bell, Smile, Video, Trash2, ImagePlus, UserPlus, Copy, Check, X, Pencil, Forward, Mic, Square, Reply, Phone, History } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import EmojiPicker, { Theme } from "emoji-picker-react";
 import { Avatar } from "@/components/Avatar";
@@ -32,6 +32,8 @@ import { usePresence } from "@/hooks/use-presence";
 import { useVoiceCall } from "@/hooks/use-voice-call";
 import { IncomingCallModal } from "@/components/IncomingCallModal";
 import { ActiveCallBar } from "@/components/ActiveCallBar";
+import { InstallAppButton, InstallAppBanner } from "@/components/InstallAppButton";
+import { CallHistoryDialog } from "@/components/CallHistoryDialog";
 
 type ReplyTarget = {
   id: number;
@@ -94,6 +96,7 @@ export default function Home() {
   const [copiedInviteLink, setCopiedInviteLink] = useState(false);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [showGroupEdit, setShowGroupEdit] = useState(false);
+  const [showCallHistory, setShowCallHistory] = useState(false);
   const [forwardingContent, setForwardingContent] = useState<string | null>(null);
   const [replyTo, setReplyTo] = useState<ReplyTarget | null>(null);
   const [openReactionPickerId, setOpenReactionPickerId] = useState<number | null>(null);
@@ -440,6 +443,14 @@ export default function Home() {
             <div className="font-display font-semibold text-foreground">Messages</div>
           </div>
           <div className="flex items-center gap-1">
+            <InstallAppButton />
+            <button
+              onClick={() => setShowCallHistory(true)}
+              className="p-2 rounded-full hover:bg-secondary text-muted-foreground hover:text-primary transition-colors"
+              title="Call history"
+            >
+              <History className="w-5 h-5" />
+            </button>
             <button
               onClick={() => setShowInviteModal(true)}
               className="p-2 rounded-full hover:bg-secondary text-muted-foreground hover:text-primary transition-colors"
@@ -477,6 +488,11 @@ export default function Home() {
             </button>
           </div>
         )}
+
+        {/* Install app banner — when native prompt is available */}
+        <div className="mx-3 mt-2 mb-1">
+          <InstallAppBanner />
+        </div>
 
         <div className="flex-1 overflow-y-auto p-2 space-y-1">
           {isConversationsLoading ? (
@@ -581,7 +597,7 @@ export default function Home() {
                       {getConversationName(activeConversation)}
                     </div>
                     {isDMOnline(activeConversation) && (
-                      <span className="text-xs text-emerald-500 font-medium leading-tight">Online</span>
+                      <span className="text-xs text-amber-700 font-medium leading-tight">Online</span>
                     )}
                   </div>
                   {/* Voice call — only for 1:1 DMs */}
@@ -763,7 +779,7 @@ export default function Home() {
                               className={cn(
                                 "px-4 py-2.5 rounded-2xl text-[15px] leading-relaxed break-words",
                                 isOwn 
-                                  ? "bg-gradient-to-br from-primary to-violet-500 text-white rounded-br-sm shadow-sm" 
+                                  ? "bg-gradient-to-br from-primary to-amber-600 text-white rounded-br-sm shadow-sm" 
                                   : "bg-secondary text-secondary-foreground rounded-bl-sm border border-white/5"
                               )}
                             >
@@ -1109,7 +1125,7 @@ export default function Home() {
               className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden"
             >
               {/* Gradient header banner */}
-              <div className="relative bg-gradient-to-br from-primary/20 via-violet-500/10 to-transparent px-6 pt-6 pb-5">
+              <div className="relative bg-gradient-to-br from-primary/20 via-amber-500/10 to-transparent px-6 pt-6 pb-5">
                 <button
                   onClick={() => setShowInviteModal(false)}
                   className="absolute top-4 right-4 p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
@@ -1117,7 +1133,7 @@ export default function Home() {
                   <X className="w-4 h-4" />
                 </button>
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-violet-500 flex items-center justify-center shadow-lg shadow-primary/30">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-amber-600 flex items-center justify-center shadow-lg shadow-primary/30">
                     <UserPlus className="w-5 h-5 text-white" />
                   </div>
                   <div>
@@ -1153,8 +1169,8 @@ export default function Home() {
                     className={cn(
                       "flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold transition-all",
                       copiedInviteLink
-                        ? "bg-emerald-500/15 text-emerald-500 border border-emerald-500/30"
-                        : "bg-gradient-to-r from-primary to-violet-500 text-white hover:opacity-90 shadow-md shadow-primary/20"
+                        ? "bg-amber-500/15 text-amber-700 border border-amber-500/30"
+                        : "bg-gradient-to-r from-primary to-amber-600 text-white hover:opacity-90 shadow-md shadow-primary/20"
                     )}
                   >
                     {copiedInviteLink ? (
@@ -1206,6 +1222,12 @@ export default function Home() {
       />
 
       <PhotoLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
+
+      <CallHistoryDialog
+        open={showCallHistory}
+        onClose={() => setShowCallHistory(false)}
+        onSelectConversation={(id) => setLocation(`/c/${id}`)}
+      />
 
       <IncomingCallModal
         fromName={incomingCall?.fromName ?? ""}

@@ -9,6 +9,7 @@ const STUN_SERVERS = [
 export type CallStatus = "idle" | "calling" | "incoming" | "connecting" | "connected" | "ended" | "declined";
 
 type IncomingCall = {
+  callId: string;
   fromUserId: string;
   fromName: string;
   conversationId: number;
@@ -22,6 +23,7 @@ export function useVoiceCall(
   const [remoteUserId, setRemoteUserId] = useState<string | null>(null);
   const [remoteName, setRemoteName] = useState<string>("");
   const [incomingCall, setIncomingCall] = useState<IncomingCall | null>(null);
+  const activeCallIdRef = useRef<string | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
@@ -96,10 +98,12 @@ export function useVoiceCall(
 
   const startCall = useCallback(async (targetUserId: string, targetName: string, conversationId: number) => {
     if (!userId || !socketRef.current) return;
+    const callId = crypto.randomUUID();
+    activeCallIdRef.current = callId;
     setRemoteUserId(targetUserId);
     setRemoteName(targetName);
     setCallStatus("calling");
-    socketRef.current.emit("call:start", { targetUserId, conversationId });
+    socketRef.current.emit("call:start", { targetUserId, conversationId, callId });
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       localStreamRef.current = stream;
@@ -133,6 +137,7 @@ export function useVoiceCall(
       console.warn("No offer received yet");
       return;
     }
+    activeCallIdRef.current = call.callId;
     setRemoteUserId(call.fromUserId);
     setRemoteName(call.fromName);
     setIncomingCall(null);
@@ -156,7 +161,7 @@ export function useVoiceCall(
       await pc.setRemoteDescription(new RTCSessionDescription(offer.sdp));
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
-      socketRef.current.emit("call:answer", { toUserId: call.fromUserId, sdp: pc.localDescription });
+      socketRef.current.emit("call:answer", { toUserId: call.fromUserId, sdp: pc.localDescription, callId: call.callId });
       setCallStatus("connected");
     } catch (err) {
       console.error("Answer call error:", err);
@@ -167,16 +172,18 @@ export function useVoiceCall(
   const declineCall = useCallback(() => {
     const call = incomingCall;
     if (!call || !socketRef.current) return;
-    socketRef.current.emit("call:decline", { toUserId: call.fromUserId });
+    socketRef.current.emit("call:decline", { toUserId: call.fromUserId, callId: call.callId });
     setIncomingCall(null);
     setCallStatus("idle");
   }, [incomingCall]);
 
   const endCall = useCallback(() => {
     const target = remoteUserId;
+    const callId = activeCallIdRef.current;
     if (target && socketRef.current) {
-      socketRef.current.emit("call:end", { toUserId: target });
+      socketRef.current.emit("call:end", { toUserId: target, callId: callId ?? undefined });
     }
+    activeCallIdRef.current = null;
     cleanupCall();
   }, [remoteUserId, cleanupCall]);
 

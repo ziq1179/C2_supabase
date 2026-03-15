@@ -33,12 +33,12 @@
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
 
-  /* Dashboard accent colors */
-  --color-accent-purple: #8D4FFB;
-  --color-accent-orange: #FFA000;
-  --color-accent-green: #28A745;
-  --color-accent-teal: #20C997;
-  --color-accent-success: #2ECC71;
+  /* Dashboard accent colors — apricot palette */
+  --color-accent-purple: #C4A77D;
+  --color-accent-orange: #D4856A;
+  --color-accent-green: #8B9A6B;
+  --color-accent-teal: #7A9B76;
+  --color-accent-success: #6B8E6B;
 
   --radius-xl: calc(var(--radius) + 4px);
   --radius-lg: var(--radius);
@@ -47,43 +47,43 @@
 }
 
 :root {
-  /* Light dashboard theme - clean, minimal, professional */
-  /* Background: subtle light grey #F8F9FB */
-  --background: 210 20% 98%;
-  --foreground: 0 0% 20%;
+  /* Apricot aesthetic — soft peach background, dark brown text */
+  /* Background: soft muted apricot/peach */
+  --background: 28 50% 94%;
+  --foreground: 22 45% 20%;
 
-  /* Cards: pure white #FFFFFF */
-  --card: 0 0% 100%;
-  --card-foreground: 0 0% 20%;
+  /* Cards: slightly deeper apricot */
+  --card: 28 45% 88%;
+  --card-foreground: 22 45% 20%;
 
-  --popover: 0 0% 100%;
-  --popover-foreground: 0 0% 20%;
+  --popover: 28 45% 88%;
+  --popover-foreground: 22 45% 20%;
 
-  /* Primary: blue button #007BFF */
-  --primary: 211 100% 50%;
-  --primary-foreground: 0 0% 100%;
+  /* Primary: deeper burnt apricot */
+  --primary: 24 55% 58%;
+  --primary-foreground: 0 0% 99%;
 
-  /* Secondary: light grey borders #DDE1E6 */
-  --secondary: 210 14% 89%;
-  --secondary-foreground: 0 0% 20%;
+  /* Secondary: soft apricot tint */
+  --secondary: 28 40% 85%;
+  --secondary-foreground: 22 40% 25%;
 
-  /* Muted: secondary text #7F8C8D */
-  --muted: 195 9% 55%;
-  --muted-foreground: 195 9% 55%;
+  /* Muted: warm brown for secondary text */
+  --muted: 25 30% 50%;
+  --muted-foreground: 22 35% 42%;
 
-  /* Accent: purple #8D4FFB */
-  --accent: 261 96% 62%;
-  --accent-foreground: 0 0% 100%;
+  /* Accent: burnt orange */
+  --accent: 24 60% 52%;
+  --accent-foreground: 0 0% 99%;
 
-  --destructive: 0 84% 60%;
+  --destructive: 0 65% 50%;
   --destructive-foreground: 0 0% 98%;
 
-  /* Border: light grey #DDE1E6 */
-  --border: 210 14% 89%;
-  --input: 210 14% 89%;
-  --ring: 211 100% 50%;
+  /* Border: soft apricot */
+  --border: 28 35% 80%;
+  --input: 28 35% 80%;
+  --ring: 24 55% 45%;
 
-  --radius: 0.5rem;
+  --radius: 0.75rem;
 }
 
 @layer base {
@@ -94,31 +94,31 @@
     @apply bg-background text-foreground font-sans antialiased;
   }
   h1, h2, h3, h4, h5, h6 {
-    @apply font-display font-bold tracking-tight text-[#1E2C4F];
+    @apply font-display font-bold tracking-tight text-foreground;
   }
 }
 
-/* Custom Scrollbar - clean light theme */
+/* Custom Scrollbar — apricot aesthetic */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #EDF0F3;
+  background: hsl(28 40% 90%);
 }
 ::-webkit-scrollbar-thumb {
-  background: #DDE1E6;
+  background: hsl(28 35% 72%);
   border-radius: 10px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #7F8C8D;
+  background: hsl(24 45% 55%);
 }
 
-/* Glass/card panel - white cards with soft shadow */
+/* Glass/card panel — soft apricot */
 .glass-panel {
-  background: #FFFFFF;
+  background: hsl(28 42% 90% / 0.95);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid #DDE1E6;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  border: 1px solid hsl(28 35% 82%);
+  box-shadow: 0 2px 12px rgba(180, 120, 80, 0.15);
 }

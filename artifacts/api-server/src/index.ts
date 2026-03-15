@@ -23,6 +23,18 @@ async function runMigrations() {
       CREATE UNIQUE INDEX IF NOT EXISTS message_reactions_unique_idx
         ON message_reactions (message_id, user_id, emoji);
     `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS call_history (
+        id          SERIAL PRIMARY KEY,
+        call_id     TEXT NOT NULL UNIQUE,
+        caller_id   TEXT NOT NULL,
+        callee_id   TEXT NOT NULL,
+        conversation_id INTEGER NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+        status      TEXT NOT NULL,
+        started_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        ended_at    TIMESTAMPTZ
+      );
+    `);
     console.log("Migrations applied");
   } catch (err) {
     console.error("Migration error:", err);

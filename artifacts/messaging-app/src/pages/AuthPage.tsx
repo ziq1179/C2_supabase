@@ -82,7 +82,7 @@ export default function AuthPage() {
           <div className="h-16 w-16 bg-primary rounded-2xl shadow-lg shadow-primary/25 flex items-center justify-center mb-6 transform rotate-3">
             <MessageSquare className="h-8 w-8 text-primary-foreground" />
           </div>
-          <h1 className="text-3xl font-display font-bold text-[#1E2C4F] mb-2">
+          <h1 className="text-3xl font-display font-bold text-foreground mb-2">
             {isLogin ? "Welcome back" : "Create account"}
           </h1>
           <p className="text-muted-foreground text-center">

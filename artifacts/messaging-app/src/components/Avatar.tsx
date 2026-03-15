@@ -27,7 +27,7 @@ export function Avatar({ src, name = "Unknown", size = "md", className, onClick,
   };
 
   const colors = [
-    "bg-blue-500", "bg-emerald-500", "bg-violet-500",
+    "bg-amber-600", "bg-orange-500", "bg-amber-700",
     "bg-rose-500", "bg-amber-500", "bg-indigo-500",
   ];
 
@@ -59,7 +59,7 @@ export function Avatar({ src, name = "Unknown", size = "md", className, onClick,
       {online && (
         <span
           className={cn(
-            "absolute rounded-full bg-emerald-500 border-background",
+            "absolute rounded-full bg-amber-500 border-background",
             dotClasses[size],
           )}
         />

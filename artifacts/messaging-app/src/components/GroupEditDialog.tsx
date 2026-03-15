@@ -328,7 +328,7 @@ export function GroupEditDialog({
               <button
                 onClick={handleSave}
                 disabled={!name.trim() || isSaving || isCompressing}
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-primary to-violet-500 text-white font-semibold text-sm shadow-lg shadow-primary/20 hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-primary to-amber-600 text-white font-semibold text-sm shadow-lg shadow-primary/20 hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isSaving ? (
                   <><Loader2 className="w-4 h-4 animate-spin" /> Saving…</>

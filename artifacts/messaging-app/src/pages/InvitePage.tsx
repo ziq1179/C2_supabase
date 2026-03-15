@@ -53,7 +53,7 @@ export default function InvitePage() {
       {/* Background blobs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -left-40 w-[600px] h-[600px] rounded-full bg-primary/15 blur-[120px]" />
-        <div className="absolute bottom-0 right-0 w-[500px] h-[500px] rounded-full bg-violet-500/10 blur-[100px]" />
+        <div className="absolute bottom-0 right-0 w-[500px] h-[500px] rounded-full bg-amber-500/10 blur-[100px]" />
       </div>
 
       {/* ── LEFT PANEL: intro ── */}
@@ -66,7 +66,7 @@ export default function InvitePage() {
         {/* Logo */}
         <div className="flex items-center gap-4 mb-8">
           <div className="relative shrink-0">
-            <div className="w-16 h-16 rounded-[20px] bg-gradient-to-br from-primary to-violet-500 flex items-center justify-center shadow-xl shadow-primary/30">
+            <div className="w-16 h-16 rounded-[20px] bg-gradient-to-br from-primary to-amber-600 flex items-center justify-center shadow-xl shadow-primary/30">
               <MessageSquare className="w-8 h-8 text-white" strokeWidth={1.5} />
             </div>
             <div className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-gradient-to-br from-yellow-400 to-orange-400 flex items-center justify-center shadow-md">
@@ -217,7 +217,7 @@ export default function InvitePage() {
                   <button
                     type="submit"
                     disabled={isSigningUp}
-                    className="w-full py-3.5 mt-1 rounded-xl bg-gradient-to-r from-primary to-violet-500 text-white font-semibold shadow-lg shadow-primary/25 hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+                    className="w-full py-3.5 mt-1 rounded-xl bg-gradient-to-r from-primary to-amber-600 text-white font-semibold shadow-lg shadow-primary/25 hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-60"
                   >
                     {isSigningUp ? (
                       <Loader2 className="w-4 h-4 animate-spin" />

@@ -76,7 +76,7 @@ export function AudioMessage({ dataUrl, isOwn }: AudioMessageProps) {
     <div className={cn(
       "flex items-center gap-2.5 px-3 py-2.5 rounded-2xl shadow-sm min-w-[220px] max-w-[280px]",
       isOwn
-        ? "bg-gradient-to-br from-primary to-violet-500 rounded-br-sm"
+        ? "bg-gradient-to-br from-primary to-amber-600 rounded-br-sm"
         : "bg-secondary rounded-bl-sm border border-white/5"
     )}>
       {/* Hidden native audio element */}

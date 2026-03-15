@@ -332,7 +332,7 @@ export function NewChatDialog({ isOpen, onClose, onSelectConversation }: NewChat
                 <button
                   onClick={handleCreateGroup}
                   disabled={!canCreateGroup}
-                  className="w-full py-3 rounded-xl bg-gradient-to-r from-primary to-violet-500 text-white font-semibold text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-primary to-amber-600 text-white font-semibold text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                 >
                   {createChat.isPending ? (
                     <><Loader2 className="w-4 h-4 animate-spin" /> Creating group…</>
