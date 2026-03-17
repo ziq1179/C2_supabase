@@ -12,7 +12,8 @@ export function useAuth() {
 
   const { data, isLoading, error } = useGetCurrentUser({
     query: {
-      retry: false,
+      retry: 3,
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 15000), // 1s, 2s, 4s (cap 15s)
       staleTime: 1000 * 60 * 5, // 5 minutes
     }
   });

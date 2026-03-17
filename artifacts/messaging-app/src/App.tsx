@@ -10,6 +10,7 @@ import AuthPage from "@/pages/AuthPage";
 import InvitePage from "@/pages/InvitePage";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -22,11 +23,26 @@ const queryClient = new QueryClient({
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   const { isAuthenticated, isLoading } = useAuth();
+  const [showWakingUp, setShowWakingUp] = useState(false);
+
+  useEffect(() => {
+    if (!isLoading) {
+      setShowWakingUp(false);
+      return;
+    }
+    const t = setTimeout(() => setShowWakingUp(true), 12000);
+    return () => clearTimeout(t);
+  }, [isLoading]);
 
   if (isLoading) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-background">
+      <div className="h-screen w-screen flex flex-col items-center justify-center gap-4 bg-background">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        {showWakingUp && (
+          <p className="text-sm text-muted-foreground text-center max-w-[260px]">
+            Server is waking up. Free tier may take up to a minute — please wait.
+          </p>
+        )}
       </div>
     );
   }

@@ -117,7 +117,7 @@ export default function AuthPage() {
                     {...loginForm.register("email")}
                     type="email"
                     placeholder="Email address"
-                    className="w-full px-4 py-3.5 bg-card border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+                    className="w-full px-4 py-3.5 bg-input-bg text-input-foreground border border-input rounded-xl placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary transition-all"
                   />
                   {loginForm.formState.errors.email && (
                     <p className="text-destructive text-xs mt-1 ml-1">{loginForm.formState.errors.email.message}</p>
@@ -128,7 +128,7 @@ export default function AuthPage() {
                     {...loginForm.register("password")}
                     type="password"
                     placeholder="Password"
-                    className="w-full px-4 py-3.5 bg-card border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+                    className="w-full px-4 py-3.5 bg-input-bg text-input-foreground border border-input rounded-xl placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary transition-all"
                   />
                   {loginForm.formState.errors.password && (
                     <p className="text-destructive text-xs mt-1 ml-1">{loginForm.formState.errors.password.message}</p>
@@ -162,7 +162,7 @@ export default function AuthPage() {
                       {...signupForm.register("firstName")}
                       type="text"
                       placeholder="First name"
-                      className="w-full px-4 py-3.5 bg-card border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+                      className="w-full px-4 py-3.5 bg-input-bg text-input-foreground border border-input rounded-xl placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary transition-all"
                     />
                     {signupForm.formState.errors.firstName && (
                       <p className="text-destructive text-xs mt-1 ml-1">{signupForm.formState.errors.firstName.message}</p>
@@ -173,7 +173,7 @@ export default function AuthPage() {
                       {...signupForm.register("lastName")}
                       type="text"
                       placeholder="Last name"
-                      className="w-full px-4 py-3.5 bg-card border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+                      className="w-full px-4 py-3.5 bg-input-bg text-input-foreground border border-input rounded-xl placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary transition-all"
                     />
                     {signupForm.formState.errors.lastName && (
                       <p className="text-destructive text-xs mt-1 ml-1">{signupForm.formState.errors.lastName.message}</p>
@@ -185,7 +185,7 @@ export default function AuthPage() {
                     {...signupForm.register("email")}
                     type="email"
                     placeholder="Email address"
-                    className="w-full px-4 py-3.5 bg-card border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+                    className="w-full px-4 py-3.5 bg-input-bg text-input-foreground border border-input rounded-xl placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary transition-all"
                   />
                   {signupForm.formState.errors.email && (
                     <p className="text-destructive text-xs mt-1 ml-1">{signupForm.formState.errors.email.message}</p>
@@ -196,7 +196,7 @@ export default function AuthPage() {
                     {...signupForm.register("password")}
                     type="password"
                     placeholder="Password (min 6 chars)"
-                    className="w-full px-4 py-3.5 bg-card border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+                    className="w-full px-4 py-3.5 bg-input-bg text-input-foreground border border-input rounded-xl placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary transition-all"
                   />
                   {signupForm.formState.errors.password && (
                     <p className="text-destructive text-xs mt-1 ml-1">{signupForm.formState.errors.password.message}</p>
