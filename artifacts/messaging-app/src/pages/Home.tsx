@@ -400,6 +400,7 @@ export default function Home() {
 
   const {
     callStatus,
+    isOutgoingCall,
     remoteName,
     incomingCall,
     remoteStream,
@@ -1240,6 +1241,7 @@ export default function Home() {
         <ActiveCallBar
           remoteName={remoteName}
           callStatus={callStatus}
+          isOutgoingCall={isOutgoingCall}
           remoteStream={remoteStream}
           onEndCall={endCall}
         />

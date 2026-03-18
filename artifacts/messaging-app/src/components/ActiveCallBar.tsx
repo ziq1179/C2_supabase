@@ -5,11 +5,12 @@ import { Avatar } from "./Avatar";
 type ActiveCallBarProps = {
   remoteName: string;
   callStatus: "calling" | "connecting" | "connected";
+  isOutgoingCall: boolean;
   remoteStream: MediaStream | null;
   onEndCall: () => void;
 };
 
-export function ActiveCallBar({ remoteName, callStatus, remoteStream, onEndCall }: ActiveCallBarProps) {
+export function ActiveCallBar({ remoteName, callStatus, isOutgoingCall, remoteStream, onEndCall }: ActiveCallBarProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
 
   useEffect(() => {
@@ -23,7 +24,9 @@ export function ActiveCallBar({ remoteName, callStatus, remoteStream, onEndCall 
     callStatus === "calling"
       ? "Calling..."
       : callStatus === "connecting"
-        ? "Connecting..."
+        ? isOutgoingCall
+          ? "Ringing..."
+          : "Connecting..."
         : "In call";
 
   return (
@@ -34,7 +37,7 @@ export function ActiveCallBar({ remoteName, callStatus, remoteStream, onEndCall 
         <div className="min-w-0">
           <div className="font-semibold text-foreground truncate">{remoteName}</div>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            {callStatus === "connecting" && <Loader2 className="w-4 h-4 animate-spin shrink-0" />}
+            {(callStatus === "connecting" && !isOutgoingCall) && <Loader2 className="w-4 h-4 animate-spin shrink-0" />}
             {statusText}
           </div>
         </div>

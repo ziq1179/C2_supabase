@@ -20,6 +20,7 @@ export function useVoiceCall(
   userName: string
 ) {
   const [callStatus, setCallStatus] = useState<CallStatus>("idle");
+  const [isOutgoingCall, setIsOutgoingCall] = useState(false);
   const [remoteUserId, setRemoteUserId] = useState<string | null>(null);
   const [remoteName, setRemoteName] = useState<string>("");
   const [incomingCall, setIncomingCall] = useState<IncomingCall | null>(null);
@@ -39,6 +40,7 @@ export function useVoiceCall(
     pcRef.current?.close();
     pcRef.current = null;
     setCallStatus("idle");
+    setIsOutgoingCall(false);
     setRemoteUserId(null);
     setRemoteName("");
     setIncomingCall(null);
@@ -102,6 +104,7 @@ export function useVoiceCall(
     activeCallIdRef.current = callId;
     setRemoteUserId(targetUserId);
     setRemoteName(targetName);
+    setIsOutgoingCall(true);
     setCallStatus("calling");
     socketRef.current.emit("call:start", { targetUserId, conversationId, callId });
     try {
@@ -142,6 +145,7 @@ export function useVoiceCall(
     setRemoteName(call.fromName);
     setIncomingCall(null);
     pendingOfferRef.current = null;
+    setIsOutgoingCall(false);
     setCallStatus("connecting");
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -189,6 +193,7 @@ export function useVoiceCall(
 
   return {
     callStatus,
+    isOutgoingCall,
     remoteUserId,
     remoteName,
     incomingCall,
